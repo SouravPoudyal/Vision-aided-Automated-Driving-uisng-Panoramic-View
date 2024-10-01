@@ -401,7 +401,7 @@ def cluster_line(lines, data, k, canvas_1, args_cluster_result):
             cv2.rectangle(canvas, (text_x_position, y - 15), (text_x_position + 20, y + 5), color, -1)
             cv2.putText(canvas, label_text, (text_x_position + 30, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
         if k >= 50 and k<= 70:
-            cv2.imwrite("images/cluster_results/{}.png".format(k), canvas)
+            cv2.imwrite("Images/cluster_results/{}.png".format(k), canvas)
         k = k + 1
 
     return label_dict, max_sublist, canvas_1, no_of_lanes*2, c0_m, k
