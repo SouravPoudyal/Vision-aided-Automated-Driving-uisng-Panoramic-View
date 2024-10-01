@@ -2,5 +2,5 @@
 <img align="center" src="images/bev_simulation.jpg" width="750">
 <img align="center" src="images/bev_hardware.jpg" width="750">
 <p align="center">
-<img align="center" src="images/canny.jpg" width="350">
+<img align="center" src="images/canny.jpg" width="450">
 <p>
