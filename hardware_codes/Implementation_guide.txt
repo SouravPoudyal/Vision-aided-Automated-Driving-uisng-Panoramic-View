@@ -1,0 +1,16 @@
+Requirements:
+1. Operating Linux systems
+2. NVIDIA Jetson AGX Xavier Board
+3. Python: version 3.8
+4. Essential libraries in Python: OpenCV : 4.9, numpy : 1.24.3
+
+Execution Instruction:
+
+1. Start the JETSON board
+2. Go to Home/New_Files/Hardware_code/In_JETSON and start a terminal.
+3. Go to Home/New_Files/Hardware_code/arduino_main: open <arudino_main> and upload to the Arduino board.
+3. Turn on the power supply of the UGV.
+4. start another terminal and Run: <sudo screen /dev/ttyUSB0 9600> (note that check the second serial port in Arduino).
+5. Use the keyboard command in this terminal to control the UGV using longitudinal PID and servo for steering: f-forward, b-reverse, r-turn_right, l-turn_right. 
+6. Run: <python3 BEV_AD.py> to start BEV in JETSON to send steering commands to Arduino.
+
