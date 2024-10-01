@@ -175,7 +175,7 @@ class PIDLongitudinalControl():
         return self.control
 
 class Lateral_purePursuite_stanley_controller():
-    def __init__(self, vehicle, control, args_driving, get_speed, max_st, K_s, K_s1, L):
+    def __init__(self, vehicle, control, args_driving, get_speed, max_st, K_s, K_s1, L, args_filter = 'ukf'):
         self.K_s = K_s
         self.K_s1 = K_s1
         self.L = L
@@ -187,6 +187,7 @@ class Lateral_purePursuite_stanley_controller():
 
         self.past_steering = 0
         self.max_steering = max_st
+        self.args_filter = args_filter
 
     def run_step_pp_d(self, wp_1, wp_2, cp):
         speed = self.get_speed(self.vehicle)
@@ -230,8 +231,12 @@ class Lateral_purePursuite_stanley_controller():
         self.ey_a.append([cte_a, relative_yaw_a])
 
         #Using EKF estimated CTE and relative Yaw for driving
-        cte_e  = x_est[5]
-        relative_yaw_e = normalize_angle(x_est[6])
+        if self.args_filter == 'ukf':
+            cte_e  = x_est[5]
+            relative_yaw_e = normalize_angle(x_est[6])
+        else:
+            cte_e  = x_est[4]
+            relative_yaw_e = normalize_angle(x_est[5])            
 
         steer_output = np.arctan2((self.K_s*cte_e), speed) + self.K_s1 * relative_yaw_e
 

@@ -126,7 +126,7 @@ def draw_detected_line_on_image(image, lines):
 
 
 #Function to get heading information
-def slope_intercept_revised(lines, y21_lst, k, w_img, h_img, W, args_lane, args_dbscan_cluster, canvas_1, args_kdc_cluster, args_driving):
+def slope_intercept_revised(lines, y21_lst, k, w_img, h_img, W, args_lane, args_dbscan_cluster, canvas_1, args_kdc_cluster, args_driving, args_cluster_result):
 
     #Initializing local variables used in this function
     exp = False
@@ -193,7 +193,7 @@ def slope_intercept_revised(lines, y21_lst, k, w_img, h_img, W, args_lane, args_
 
     if args_dbscan_cluster:    
         if len(f_m_theta) >= 2:
-            label_dict, max_sublist, canvas_1, n_l_d, c0_m = utils_clustering.cluster_line(f_lines, f_m_theta, k, canvas_1)
+            label_dict, max_sublist, canvas_1, n_l_d, c0_m, k = utils_clustering.cluster_line(f_lines, f_m_theta, k, canvas_1, args_cluster_result)
             if len(max_sublist)>0:
                 lan_dist = utils_clustering.raw_data(label_dict, max_sublist)
             else:
@@ -246,7 +246,7 @@ def slope_intercept_revised(lines, y21_lst, k, w_img, h_img, W, args_lane, args_
     x0 = np.array([x11, y11])
     x01_lst = [np.array([x21_lst[k], y21_lst[k]]) for k in range(len(x21_lst))]
 
-    return med_ang_lst, x0, x01_lst, lan_dist, exp, list(lines_1), list(lines_2), list(lines_3), m_theta_2, canvas_1, c0_m
+    return med_ang_lst, x0, x01_lst, lan_dist, exp, list(lines_1), list(lines_2), list(lines_3), m_theta_2, canvas_1, c0_m, k
 
 # function for vehicle relative yaw calculation
 def heading_display(me_a):
@@ -429,7 +429,7 @@ def depth_camera_callback(image, data_dict, camera_name):
     original_depth_image = to_rgb_array(image)
 
     # Store the depth_map in the data_dict with the camera_name as key
-    data_dict[camera_name] =  depth_colormap
+    data_dict[camera_name] =  depth_array
 
 
 def depth_camera_callback_1(image, data_dict, camera_name):

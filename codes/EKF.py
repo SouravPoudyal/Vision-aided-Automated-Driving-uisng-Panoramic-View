@@ -17,33 +17,24 @@ import math
 from numpy.linalg import inv
 
 class EKF:
-    def __init__(self, max_iteration, dt, x_est, P_est, L, l_r, W, pixel_to_meter, v, c_f='l'):
+    def __init__(self, dt, L, l_r, W, pixel_to_meter, v, th_dot, st_dot, cp, initial_state, c_f='l', dim_x = 6):
     
-        self.x_est = x_est
-        self.P_est = P_est
+        self.initial_state = initial_state
+        self.x_est = np.array([self.initial_state['x_i'], self.initial_state['y_i'], math.radians(self.initial_state['yaw_i']) , 0 , 0, 0])
+        self.P_est = np.diag([0.01, 0.01, 0.01, 0.5, 0.5 , 0.5])
         
-        self.v_std = 0.002
-        self.sdot_std = 0.2
-        self.tdot_std = 0.2
-        self.x_std = 0.01
-        self.y_std = 0.01
-        self.th_std = 0.001
-        self.lr_std = 0.002
-        self.ll_std = 0.002
-        self.yaw_std = 0.002
-        
-        self.v_noise_dist = np.random.normal(0, self.v_std, max_iteration)
-        self.sdot_noise_dist = np.random.normal(0, self.sdot_std, max_iteration)
-        self.tdot_noise_dist = np.random.normal(0, self.tdot_std, max_iteration)
-        self.x_noise_dist = np.random.normal(0, self.x_std, max_iteration)
-        self.y_noise_dist = np.random.normal(0, self.y_std, max_iteration)
-        self.th_noise_dist = np.random.normal(0, self.th_std, max_iteration)
-        self.lr_noise_dist = np.random.normal(0, self.lr_std, max_iteration)
-        self.ll_noise_dist = np.random.normal(0, self.ll_std, max_iteration)
-        self.yaw_noise_dist = np.random.normal(0, self.yaw_std, max_iteration)
+        self.v_std = 0.02
+        self.sdot_std = 0.02
+        self.tdot_std = 0.02
+        self.x_std = 0.001
+        self.y_std = 0.001
+        self.th_std = 0.0001
+        self.lr_std = 0.001
+        self.ll_std = 0.001
+        self.yaw_std = 0.0001
         
         self.Q_km = np.diag([self.v_std**2, self.sdot_std**2, self.tdot_std**2])
-        self.cov_y = np.diag([self.lr_std**2, self.ll_std**2, self.yaw_std**2])
+        self.cov_y = np.diag([self.x_std**2, self.y_std**2, self.th_std**2, self.lr_std**2, self.ll_std**2, self.yaw_std**2])
         
         self.dt = dt
         self.L = L
@@ -51,7 +42,10 @@ class EKF:
         self.W = W
         self.pixel_to_meter = pixel_to_meter
         self.v = v
+        self.th_dot = th_dot
+        self.st_dot = st_dot
         self.c_f = c_f
+        self.cp = cp
         
         self.st_prev = 0
         self.th_prev = 0
@@ -66,6 +60,7 @@ class EKF:
     def measurement_update(self, lr_m, ll_m, phi_m, P_check, x_check, cov_y, W, c_f):
         x_k, y_k, th_k, _, yo_k, phi_k = x_check[0, 0], x_check[0, 1], x_check[0, 2], x_check[0, 3], x_check[0, 4], x_check[0, 5]
         x_check_copy = np.copy(x_check)
+        x_g, y_g, z_g = self.cp[0] + np.random.normal(0, scale=self.x_std), self.cp[1] + np.random.normal(0, scale=self.y_std), self.cp[2] + np.random.normal(0, scale=self.th_std)
         
         if c_f == 'l':
             p_m = phi_k
@@ -76,15 +71,19 @@ class EKF:
             l_r = W * 1/4 + yo_k
             l_l = -W * 3/4 + yo_k
 
-        H_k = np.array([[0, 0, 0, 0, 0, 1],
+        #Computing measurement Jacobian
+        H_k = np.array([[1, 0, 0, 0, 0, 0],
+                        [0, 1, 0, 0, 0, 0],
+                        [0, 0, 1, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 1],
                         [0, 0, 0, 0, 1, 0],
                         [0, 0, 0, 0, 1, 0]])
-        M_k = np.eye(3)
+        M_k = np.eye(6)
         
         K_k = np.dot(np.dot(P_check, H_k.T), inv(np.dot(np.dot(H_k, P_check), H_k.T) + np.dot(np.dot(M_k, cov_y), M_k.T)))
         
-        z_k = np.array([self.normalize_angle(p_m), l_r, l_l])
-        z_m = np.array([phi_m, lr_m, ll_m])
+        z_k = np.array([x_k, y_k, th_k, self.normalize_angle(p_m), l_r, l_l])
+        z_m = np.array([x_g, y_g, z_g, phi_m, lr_m, ll_m])
         x_check_copy += np.dot(K_k, (z_m - z_k).reshape(-1, 1)).T
         x_check_copy[0,2] = self.normalize_angle(x_check_copy[0,2])
         
@@ -111,10 +110,13 @@ class EKF:
                         [0, 1, 0], 
                         [np.sin(phi), 0, 0], 
                         [0, 0, -1]])
-        U_k = np.mat([self.v + np.random.choice(self.v_noise_dist), th_dot + np.random.choice(self.tdot_noise_dist), st_dot + np.random.choice(self.sdot_noise_dist)])
+        U_k = np.mat([self.v , self.st_dot , self.th_dot])
         x_check += self.dt * (np.dot(L_m, U_k.T)).T
 
         x_check[0, 2] = self.normalize_angle(x_check[0, 2])
+        #x_check[0, 3] = self.normalize_angle(x_check[0, 3])
+        #x_check[0, 5] = self.normalize_angle(x_check[0, 5])
+        
 
         F_km = np.array([[1, 0, -self.dt * self.v * np.sin(th + np.arctan(self.l_r * np.tan(st) / self.L)), 
                           -self.dt * self.l_r * self.v * (np.tan(st) ** 2 + 1) * np.sin(th + np.arctan(self.l_r * np.tan(st) / self.L)) / (self.L * (1 + self.l_r ** 2 * np.tan(st)  ** 2 / self.L ** 2)), 
@@ -133,9 +135,9 @@ class EKF:
 
         no_data = min(len(zm), 7)
         for i in range(no_data):
-            x_check, P_check = self.measurement_update(zm[i, 1] + np.random.choice(self.lr_noise_dist), 
-                                                       zm[i, 0] + np.random.choice(self.ll_noise_dist), 
-                                                       zm[i, 2] + np.random.choice(self.yaw_noise_dist), 
+            x_check, P_check = self.measurement_update(zm[i, 1] + np.random.normal( 0, self.lr_std),
+                                                       zm[i, 0] + np.random.normal(0, self.ll_std), 
+                                                       zm[i, 2] + np.random.normal(0, self.yaw_std), 
                                                        P_check, x_check, self.cov_y, self.W * self.pixel_to_meter, self.c_f)
 
         self.x_est[:6] = x_check.flatten()

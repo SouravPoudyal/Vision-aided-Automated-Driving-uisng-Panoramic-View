@@ -24,11 +24,15 @@ def parse_args():
         help='Choose between left lane and right lane driving'
     )
     parser.add_argument(
+        '--kf', '-f', type=str, default='ekf', choices=['ekf', 'ukf'],
+        help='Activate EKF or use UKF drive'        
+    )
+    parser.add_argument(
         '--single_camera_BEV', '-s_b', type=str, default='r_s', choices=['r_s', 'fm_orb', 'fm_sift'],
         help='Activate Single Camera BEV'
     )
     parser.add_argument(
-        '--driving', '-d', type=str, default='b', choices=['f', 'b', 'sl_d', 'pp_d'],
+        '--driving', '-d', type=str, default='sl_d', choices=['f', 'b', 'sl_d', 'pp_d'],
         help='Activate EKF or use only BEV to drive'
     )
     parser.add_argument(
@@ -46,6 +50,15 @@ def parse_args():
     parser.add_argument('--speed', '-c_s', type=float, default=25.0, help='cars straight line speed')
     parser.add_argument('--time', '-s_t', type=float, default=0.02, help='simulation time')
 
+    # save cluster result
+    parser.add_argument(
+        '--cluster_result',
+        '-c_r',
+        type=str2bool,
+        default=False,
+        choices=[True, False],
+        help='Save 50 cluster result to /images/cluster_results'
+    )
     return parser.parse_args()
 
 def str2bool(v):
@@ -97,14 +110,14 @@ def init_controller_params():
     tdot_std = 0.002    # Yaw rate standard deviation
 
     # State measurement standard deviations
-    x_std = 0.001       # x position standard deviation
-    y_std = 0.001       # y position standard deviation
-    th_std = 0.0001     # Yaw angle standard deviation
+    x_std = 0.01       # x position standard deviation
+    y_std = 0.01       # y position standard deviation
+    th_std = 0.001     # Yaw angle standard deviation
 
     # Lane measurement standard deviations
-    lr_std = 0.001      # Right lane measurement standard deviation
-    ll_std = 0.001      # Left lane measurement standard deviation
-    y_std = 0.002     # Relative yaw measurement standard deviation
+    lr_std = 0.0001      # Right lane measurement standard deviation
+    ll_std = 0.0001      # Left lane measurement standard deviation
+    y_std = 0.000001     # Relative yaw measurement standard deviation
 
     # Covariance matrices (variance = std^2)
     cov_bi = np.diag([v_std**2, sdot_std**2, tdot_std**2])  # Input noise covariance

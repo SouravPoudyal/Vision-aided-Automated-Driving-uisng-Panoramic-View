@@ -183,9 +183,7 @@ class UKF:
             self.fx[2].x_i,self.fx[2].v_i, self.fx[2].y_i  = self.points.sig_pts[i, 9], self.points.sig_pts[i, 10], self.points.sig_pts[i, 11]
             ar_3 = self.fx[2].fx_o(u[0])
             self.sigmas_f[i] = np.concatenate((ar_1, ar_2, ar_3))
-        #print('self.sigmas_f[0]', self.sigmas_f[0])
         self.x, self.P = uncented_transform(self.sigmas_f, self.Wm, self.Wc, self.Q, self.x_mean_fn, self.residual_x,self.dt, 'p', self.fx, self.c)
-        #print('prediction', self.x)
 
     def update(self, z): 
         for _ in range(0, len(z), self.dim_z):

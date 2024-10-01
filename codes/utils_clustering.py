@@ -18,6 +18,7 @@ import numpy as np
 import time
 import Bezier_curve as be
 import utils_parameters
+import cv2
 
 #Lane width
 W = utils_parameters.bev_parameters()['W']
@@ -129,7 +130,7 @@ def l_count(s_m, sig_mask, c ='d'):
     return s_1, s_2
 
 @measure_time
-def cluster_line(lines, data, k, canvas_1):
+def cluster_line(lines, data, k, canvas_1, args_cluster_result):
     global prev_head
     c0_m = 0
     a = 0
@@ -329,79 +330,81 @@ def cluster_line(lines, data, k, canvas_1):
         di_c = x_and_circular_means[closest_label][2]
     else:
         di_c = 0
-    '''
-    # Define fixed colors for clusters
-    fixed_colors = [
-        (255, 0, 0),    # blue
-        (0, 255, 0),    # Green
-        (0, 0, 255),    # red
-        (255, 255, 0),  # Yellow
-        (0, 255, 255),  # Cyan
-        (255, 128, 0),  # Orange
-        (0, 255, 128),  # Spring green
-        (128, 0, 255),  # Purple
-        (128, 255, 0),   # Lime
-        (255, 0, 255),  # Magenta
-    ]
-    # Create white canvas image
-    canvas = np.ones((480, 640, 3), dtype=np.uint8) * 255  # White image
-
-    # Draw lines with their respective label colors
-    for i, line in enumerate(lines):
-        x1, y1, x2, y2 = line
-        label = clusters[i]  # Get label for this line
-        if label == -1:  # Outlier
-            color = (255, 0, 255)  # Magenta for outliers
-        else:
-            color = fixed_colors[label % len(fixed_colors)]  # Assign fixed color based on label
-
-        # Draw line on canvas
-        cv2.line(canvas, (x1, y1), (x2, y2), color, thickness=2)
-    # Add text annotations for stats and legend for colors in the bottom right
-    if di_c > 0:
-        text_stats = [
-            f'No. of lanes: {no_of_lanes*2}',
-            f'RLE-car: {closest_label}',
-            f'Detected LE: {max_sublist}'
+    
+    if args_cluster_result:
+        # Define fixed colors for clusters
+        fixed_colors = [
+            (255, 0, 0),    # blue
+            (0, 255, 0),    # Green
+            (0, 0, 255),    # red
+            (255, 255, 0),  # Yellow
+            (0, 255, 255),  # Cyan
+            (255, 128, 0),  # Orange
+            (0, 255, 128),  # Spring green
+            (128, 0, 255),  # Purple
+            (128, 255, 0),   # Lime
+            (255, 0, 255),  # Magenta
         ]
-    elif di_c < 0:
-        text_stats = [
-            f'No. of lanes: {no_of_lanes*2}',
-            f'LLE-car: {closest_label}',
-            f'Detected LE: {max_sublist}'
-        ]
-    else:
+        # Create white canvas image
+        canvas = np.ones((480, 640, 3), dtype=np.uint8) * 255  # White image
+
+        # Draw lines with their respective label colors
+        for i, line in enumerate(lines):
+            x1, y1, x2, y2 = line
+            label = clusters[i]  # Get label for this line
+            if label == -1:  # Outlier
+                color = (255, 0, 255)  # Magenta for outliers
+            else:
+                color = fixed_colors[label % len(fixed_colors)]  # Assign fixed color based on label
+
+            # Draw line on canvas
+            cv2.line(canvas, (x1, y1), (x2, y2), color, thickness=2)
+        # Add text annotations for stats and legend for colors in the bottom right
+        if di_c > 0:
             text_stats = [
-            f'No. of lanes: {no_of_lanes*2}',
-            f'Outlier: {closest_label}',
-            f'Detected LE: {max_sublist}'
-        ]
-
-
-    # Calculate starting position for the text annotations
-    stats_y0, dy = canvas.shape[0] - 20 * (len(text_stats) + len(unique_labels) + 1), 20  # Adjust based on the number of lines
-    text_x_position = canvas.shape[1] - 250  # Adjusted x-position to fit within the right edge
-
-    for i, text in enumerate(text_stats):
-        y = stats_y0 + i * dy
-        cv2.putText(canvas, text, (text_x_position, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
-
-    # Add legend for colors below the stats
-    legend_y0 = stats_y0 + len(text_stats) * dy
-    for i, label in enumerate(unique_labels):
-        if label == -1:
-            color = (255, 0, 255)
-            label_text = 'Outliers'
+                f'No. of lanes: {no_of_lanes*2}',
+                f'RLE-car: {closest_label}',
+                f'Detected LE: {max_sublist}'
+            ]
+        elif di_c < 0:
+            text_stats = [
+                f'No. of lanes: {no_of_lanes*2}',
+                f'LLE-car: {closest_label}',
+                f'Detected LE: {max_sublist}'
+            ]
         else:
-            color = fixed_colors[label % len(fixed_colors)]
-            label_text = f'Label {label}'
-        y = legend_y0 + i * dy
-        cv2.rectangle(canvas, (text_x_position, y - 15), (text_x_position + 20, y + 5), color, -1)
-        cv2.putText(canvas, label_text, (text_x_position + 30, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
+                text_stats = [
+                f'No. of lanes: {no_of_lanes*2}',
+                f'Outlier: {closest_label}',
+                f'Detected LE: {max_sublist}'
+            ]
 
-    cv2.imwrite("EKF/imag/{}.png".format(k), canvas)'''
 
-    return label_dict, max_sublist, canvas_1, no_of_lanes*2, c0_m
+        # Calculate starting position for the text annotations
+        stats_y0, dy = canvas.shape[0] - 20 * (len(text_stats) + len(unique_labels) + 1), 20  # Adjust based on the number of lines
+        text_x_position = canvas.shape[1] - 250  # Adjusted x-position to fit within the right edge
+
+        for i, text in enumerate(text_stats):
+            y = stats_y0 + i * dy
+            cv2.putText(canvas, text, (text_x_position, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
+
+        # Add legend for colors below the stats
+        legend_y0 = stats_y0 + len(text_stats) * dy
+        for i, label in enumerate(unique_labels):
+            if label == -1:
+                color = (255, 0, 255)
+                label_text = 'Outliers'
+            else:
+                color = fixed_colors[label % len(fixed_colors)]
+                label_text = f'Label {label}'
+            y = legend_y0 + i * dy
+            cv2.rectangle(canvas, (text_x_position, y - 15), (text_x_position + 20, y + 5), color, -1)
+            cv2.putText(canvas, label_text, (text_x_position + 30, y), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2, cv2.LINE_AA)
+        if k >= 50 and k<= 70:
+            cv2.imwrite("images/cluster_results/{}.png".format(k), canvas)
+        k = k + 1
+
+    return label_dict, max_sublist, canvas_1, no_of_lanes*2, c0_m, k
 
 # cross lane edge distance from the car
 def perpendicular_cross_distance(point, ref_point, angle, d = 'c'):
@@ -510,7 +513,7 @@ def raw_data(label_dict, max_sublist):
     return lan_dist
 
 # This block combines measurements of relative position and relative yaw of lane lines w.r.t car
-def get_z(lan_dist, k, scal_factor, wp, x_est, c0_m):
+def get_z(lan_dist, k, scal_factor, wp, x_est, c0_m, args_filter):
     d_y_l = np.vstack(lan_dist['d_l']).T
     d_y_r = np.vstack(lan_dist['d_r']).T
 
@@ -538,21 +541,23 @@ def get_z(lan_dist, k, scal_factor, wp, x_est, c0_m):
             y_lr = np.deg2rad(y_lr)
         else:
             y_lr = np.zeros(len(y_lr))
-    
     dl_m = d_y_l[0, :] * scal_factor
     dr_m = d_y_r[0, :] * scal_factor
 
     y_lr = y_lr.reshape(len(y_lr), 1)
     dl_m = dl_m.reshape(len(dl_m), 1)
     dr_m = dr_m.reshape(len(dr_m), 1)
-    if c0_m is not None:
-        c_m = np.ones(len(dl_m)).reshape(len(dl_m), 1) * c0_m
-    else:
-        c_m = np.ones(len(dl_m)).reshape(len(dl_m), 1) * 0
-    x_i = np.ones(len(dl_m)).reshape(len(dl_m), 1) * wp
-    y_i = np.ones(len(dl_m)).reshape(len(dl_m), 1) * x_est[11]
+    if args_filter == 'ukf':   
+        if c0_m is not None:
+            c_m = np.ones(len(dl_m)).reshape(len(dl_m), 1) * c0_m
+        else:
+            c_m = np.ones(len(dl_m)).reshape(len(dl_m), 1) * 0
+        x_i = np.ones(len(dl_m)).reshape(len(dl_m), 1) * wp
+        y_i = np.ones(len(dl_m)).reshape(len(dl_m), 1) * x_est[11]
 
-    z_m = np.concatenate((dl_m, dr_m, y_lr, c_m, x_i, y_i), axis=1)
+        z_m = np.concatenate((dl_m, dr_m, y_lr, c_m, x_i, y_i), axis=1)
+    else:
+        z_m = np.concatenate((dl_m, dr_m, y_lr), axis=1)
 
     return z_m
 

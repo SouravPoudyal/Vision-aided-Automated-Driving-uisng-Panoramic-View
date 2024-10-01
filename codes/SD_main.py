@@ -12,8 +12,8 @@ import cv2
 import utils_clustering
 import utils_parameters
 import utils_UKF
+import EKF as utils_EKF
 import math
-
 
 
 #Either use Windows or Linux for implementation
@@ -119,6 +119,7 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
     t_prev = time.time()
     t_diff = 0
 
+
     #Measurement data list
     zm = []
     #Raw data dictionary
@@ -134,7 +135,7 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
 
     #BEV initialization
     if args.segmentation_BEV and not args.perception:
-        image_h, image_w, camera_front, camera_left, camera_right, camera_rear, camera_seg_f, camera_seg_r, camera_seg_l, camera_seg_rr, H_Front, H_Left, H_Rear, H_Right, bev_m_1, bev_m_2, eroded_img, eroded_img_1 = b.bev_init(bev_parameters['h_img'], bev_parameters['w_img'], world, vehicle, args.max_fn, args.segmentation_BEV, args.perception)
+        image_h, image_w, camera_front, camera_left, camera_right, camera_rear, camera_seg_f, camera_seg_r, camera_seg_l, camera_seg_rr, H_Front, H_Left, H_Rear, H_Right, bev_m_1, bev_m_2, eroded_img, eroded_img_1 = b.bev_init(bev_parameters['h_img'], bev_parameters['w_img'], world, vehicle, args.max_fn, args.segmentation_BEV, args.perception, args.cluster_result)
     elif args.segmentation_BEV and args.perception:
         image_h, image_w, image_w_p, image_h_p, camera_front, camera_left, camera_right, camera_rear, camera_seg_f, camera_seg_r,  camera_seg_l, camera_seg_rr, camera_depth_f, camera_front_p, seg_camera_front_p, H_Front, H_Left, H_Rear, H_Right, bev_m_1, bev_m_2, eroded_img, eroded_img_1, K = b.bev_init(bev_parameters['h_img'], bev_parameters['w_img'], world, vehicle, args.max_fn, args.segmentation_BEV, args.perception) 
     else:
@@ -192,23 +193,26 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
     camera_rear.listen(lambda image: b.camera_callback(image, camera_data, 'rear_image'))
 
     #Initializing lateral control object
-    lat_controller = c.Lateral_purePursuite_stanley_controller(vehicle, control, args.driving, get_speed, car_state['max_st'], controller_params['k_s'], controller_params['k_s1'], car_state['L'])
+    lat_controller = c.Lateral_purePursuite_stanley_controller(vehicle, control, args.driving, get_speed, car_state['max_st'], controller_params['k_s'], controller_params['k_s1'], car_state['L'], args.kf)
     
-    #Initializing UKF modules
-    bicycle = utils_UKF.Bicycle(initial_state['x_i'], initial_state['y_i'], initial_state['z_i'], np.deg2rad(initial_state['yaw_i']), 0 , car_state['L'] , car_state['l_r'], dot_w_max, dt)  # Instantiate with initial state and parameters
-    clothoid_ln = utils_UKF.clothoid_lane(bev_parameters['W'] * bev_parameters['pixel_to_meter'], 0 ,0 ,0 ,0 , dt, args.lane)
-    obj = utils_UKF.object(0, 0 ,0, dt)
+    if args.kf == 'ukf':
+        #Initializing UKF modules
+        bicycle = utils_UKF.Bicycle(initial_state['x_i'], initial_state['y_i'], initial_state['z_i'], np.deg2rad(initial_state['yaw_i']), 0 , car_state['L'] , car_state['l_r'], dot_w_max, dt)  # Instantiate with initial state and parameters
+        clothoid_ln = utils_UKF.clothoid_lane(bev_parameters['W'] * bev_parameters['pixel_to_meter'], 0 ,0 ,0 ,0 , dt, args.lane)
+        obj = utils_UKF.object(0, 0 ,0, dt)
 
-    fx_lst = [bicycle, clothoid_ln, obj]
-    hx_lst = utils_UKF.Hx
-    sigma_points = utils_UKF.MerweScaledSigmaPoints(12)
+        fx_lst = [bicycle, clothoid_ln, obj]
+        hx_lst = utils_UKF.Hx
+        sigma_points = utils_UKF.MerweScaledSigmaPoints(12)
 
-    ukf = utils_UKF.UKF(dim_x = 12, dim_z = 9, fx=fx_lst, hx=hx_lst,
-        dt=dt, points=sigma_points, x_mean_fn=utils_UKF.state_mean, 
-        z_mean_fn=utils_UKF.z_mean, residual_x=utils_UKF.residual_x, 
-        residual_z=utils_UKF.residual_h, Q=[controller_params['Q_a'], controller_params['cov_bi']], R=controller_params['R_a'], c = controller_params['c_nd'])
+        ukf = utils_UKF.UKF(dim_x = 12, dim_z = 9, fx=fx_lst, hx=hx_lst,
+            dt=dt, points=sigma_points, x_mean_fn=utils_UKF.state_mean, 
+            z_mean_fn=utils_UKF.z_mean, residual_x=utils_UKF.residual_x, 
+            residual_z=utils_UKF.residual_h, Q=[controller_params['Q_a'], controller_params['cov_bi']], R=controller_params['R_a'], c = controller_params['c_nd'])
 
-    ukf.points.sigma_points(ukf.x, ukf.P)
+        ukf.points.sigma_points(ukf.x, ukf.P)
+    else:
+        ekf =utils_EKF.EKF(dt, car_state['L'], car_state['l_r'], bev_parameters['W'], bev_parameters['pixel_to_meter'], 0, 0, 0, cp,initial_state, c_f='l', dim_x = 6)
 
     cv2.namedWindow('stitched', cv2.WINDOW_AUTOSIZE)
     if args.segmentation_BEV:
@@ -265,7 +269,7 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
             camera_f_depth = camera_data['depth_image_f']
             camera_f_p = camera_data['image_front_p']
             seg_camera_f_p = camera_data['seg_image_front_p']
-            #seg_camera_f_p = b.desired_color_fn(seg_camera_f_p, bev_parameters['desired_color_1'])        
+            dc_f_seg = b.desired_color_fn(seg_camera_f_p, bev_parameters['desired_color_1'])        
 
         if args.segmentation_BEV_modes == 'c':
             dc_f_seg = b.desired_color_fn(camera_f_seg, bev_parameters['desired_color'])
@@ -337,10 +341,13 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
         if lines is not None:
             b.draw_detected_line_on_image(black_image, lines)
             #cv2.imwrite("image_f/imag/{}.png".format(k), black_image)   
-            me_a, x_1, x_2, lan_dist, exp, lines_1, lines_2, lines_3, m_theta_2, canvas_1, c0_m = b.slope_intercept_revised(lines, [int(60), int(bev_parameters['h_img']-60)], k, bev_parameters['w_img'], bev_parameters['h_img'], bev_parameters['W'], args.lane, args.dbscan_cluster, canvas_1, args.kdc_cluster, args.driving)
+            me_a, x_1, x_2, lan_dist, exp, lines_1, lines_2, lines_3, m_theta_2, canvas_1, c0_m, k = b.slope_intercept_revised(lines, [int(60), int(bev_parameters['h_img']-60)], k, bev_parameters['w_img'], bev_parameters['h_img'], bev_parameters['W'], args.lane, args.dbscan_cluster, canvas_1, args.kdc_cluster, args.driving, args.cluster_result)
             if exp == False and args.dbscan_cluster and len(lan_dist) > 0:
                 try:
-                    zm = utils_clustering.get_z(lan_dist, k, bev_parameters['pixel_to_meter'], controller_params['wp'], ukf.x, c0_a)
+                    if args.kf == 'ukf':
+                        zm = utils_clustering.get_z(lan_dist, k, bev_parameters['pixel_to_meter'], controller_params['wp'], ukf.x, c0_a, args.kf)
+                    else:
+                        zm = utils_clustering.get_z(lan_dist, k, bev_parameters['pixel_to_meter'], controller_params['wp'], ekf.x_est, c0_a, args.kf)
                 except Exception as e:
                     exp = True
                     raise ValueError("Error: {}".format(str(e)))
@@ -373,8 +380,11 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
             x_est_bev = np.array([np.median(zm[:, 2]), ct_e])
         else:
             x_est_bev = np.array([y_d_h, ct_e])
-
-        control_signal, ct = lat_controller.control_sig_lat(wp_1, wp_2, cp, x_est_bev, ukf.x)
+        
+        if args.kf == 'ukf':
+            control_signal, ct = lat_controller.control_sig_lat(wp_1, wp_2, cp, x_est_bev, ukf.x)
+        else:
+            control_signal, ct = lat_controller.control_sig_lat(wp_1, wp_2, cp, x_est_bev, ekf.x_est)
         if control_signal is not None:
             vehicle.apply_control(control_signal)
         
@@ -387,18 +397,26 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
 
         #############################################################################################
         if args.driving == 'f':
-            u = np.array([v, s_dot, th_dot])
-            # Perform predict step
-            ukf.predict(u)
-            if exp == False:
-                z_c = np.empty((zm.shape[0], cp.shape[0]+zm.shape[1]))
-                z_c[:, :cp.shape[0]] = cp
-                z_c[:, cp.shape[0]:] = zm
-                z_c = np.concatenate(z_c)
-                # Perform update step
-                ukf.update(z_c)
-                ukf.points.sigma_points(ukf.x, ukf.P)
-                print("ukf.x", ukf.x)
+            if args.kf == 'ukf':
+                u = np.array([v, s_dot, th_dot])
+                # Perform predict step
+                ukf.predict(u)
+                if exp == False:
+                    z_c = np.empty((zm.shape[0], cp.shape[0]+zm.shape[1]))
+                    z_c[:, :cp.shape[0]] = cp
+                    z_c[:, cp.shape[0]:] = zm
+                    z_c = np.concatenate(z_c)
+                    # Perform update step
+                    ukf.update(z_c)
+                    ukf.points.sigma_points(ukf.x, ukf.P)
+                    ukf.dt = dt
+            else:
+                ekf.v = v 
+                ekf.st_dot = s_dot
+                ekf.th_dot = th_dot
+                ekf.dt = dt
+                ekf.cp = cp
+                ekf.ekf_step(zm)
 
         #cv2.imshow("Canny", canny_image)
         if args.segmentation_BEV:
@@ -410,18 +428,20 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
         if args.perception:
             cv2.imshow('Front_Depth_camera', camera_f_depth)
             cv2.imshow('Front_camera_p', camera_f_p)
-            cv2.imshow('Front_segmentation_camera_p', seg_camera_f_p)
+            cv2.imshow('Front_segmentation_camera_p', dc_f_seg)
 
-        
         with result_lock:
             ax.plot(wp_1[0], wp_1[1], 'go')
             ax.plot(cp[0], cp[1], 'ro')
-            ax.plot(ukf.x[0], ukf.x[1], 'bo')
+            if args.kf == 'ukf':
+                ax.plot(ukf.x[0], ukf.x[1], 'bo')
+            else:
+                ax.plot(ekf.x_est[0], ekf.x_est[1], 'bo')
             #ax.plot(t_init, v_pr_p, 'bo')
             ax.set_xlabel('X')
             ax.set_ylabel('Y')
-            #plt.draw()
-            #plt.pause(0.00000001)
+            plt.draw()
+            plt.pause(0.00000001)
 
         if cv2.waitKey(1) == ord('q'):
             break 
