@@ -1,4 +1,5 @@
 # Vision-aided-Automated-Driving-uisng-Panoramic-View
+Implementation guide in Simulation [Implementation](Simulation_codes/Implementation_guide.txt)
 <img align="center" src="images/Carla_communication.jpg" width="750">
 <img align="center" src="images/bev_simulation.jpg" width="750">
 <img align="center" src="images/hardware.jpg" width="750">
