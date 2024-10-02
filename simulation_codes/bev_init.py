@@ -429,7 +429,7 @@ def depth_camera_callback(image, data_dict, camera_name):
     original_depth_image = to_rgb_array(image)
 
     # Store the depth_map in the data_dict with the camera_name as key
-    data_dict[camera_name] =  depth_array
+    data_dict[camera_name] =  depth_colormap
 
 
 def depth_camera_callback_1(image, data_dict, camera_name):

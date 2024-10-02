@@ -431,17 +431,35 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
             cv2.imshow('Front_segmentation_camera_p', dc_f_seg)
 
         with result_lock:
-            ax.plot(wp_1[0], wp_1[1], 'go')
-            ax.plot(cp[0], cp[1], 'ro')
-            if args.kf == 'ukf':
-                ax.plot(ukf.x[0], ukf.x[1], 'bo')
+            # Initialize a flag to only add labels once
+            if not hasattr(ax, '_has_legend'):
+                ax.plot(wp_1[0], wp_1[1], 'g-o', label='actual')  
+                ax.plot(cp[0], cp[1], 'b-x', label='waypoint')    
+                
+                if args.kf == 'ukf':
+                    ax.plot(ukf.x[0], ukf.x[1], 'r-*', label='estimated(UKF)')  
+                else:
+                    ax.plot(ekf.x_est[0], ekf.x_est[1], 'r-*', label='estimated(EKF)')  
+                
+                ax.legend()  # Create legend after first plotting
+                ax._has_legend = True
             else:
-                ax.plot(ekf.x_est[0], ekf.x_est[1], 'bo')
-            #ax.plot(t_init, v_pr_p, 'bo')
-            ax.set_xlabel('X')
-            ax.set_ylabel('Y')
-            plt.draw()
-            plt.pause(0.00000001)
+                # Plot without labels on subsequent updates
+                ax.plot(wp_1[0], wp_1[1], 'b-x')
+                ax.plot(cp[0], cp[1], 'g-o')
+                
+                if args.kf == 'ukf':
+                    ax.plot(ukf.x[0], ukf.x[1], 'r-*')
+                else:
+                    ax.plot(ekf.x_est[0], ekf.x_est[1], 'r-*')
+
+            # Continue with the rest of the plotting
+            ax.set_xlabel('X, m')
+            ax.set_ylabel('Y, m')
+            ax.set_title('Vehicle Trajectory')
+            if args.plot:
+                plt.draw()
+                plt.pause(0.00000001)
 
         if cv2.waitKey(1) == ord('q'):
             break 

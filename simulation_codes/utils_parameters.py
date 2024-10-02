@@ -50,6 +50,12 @@ def parse_args():
     parser.add_argument('--speed', '-c_s', type=float, default=25.0, help='cars straight line speed')
     parser.add_argument('--time', '-s_t', type=float, default=0.02, help='simulation time')
 
+    parser.add_argument('--plot','-p_lt',
+        type=str2bool,
+        default=False,
+        choices=[True, False],
+        help='Plot trajectory')
+
     # save cluster result
     parser.add_argument(
         '--cluster_result',
@@ -136,7 +142,7 @@ def init_controller_params():
 
     # Controller parameters
     return {
-        'k_s1': 1, 'k_s': 1,  # Lateral controller parameters
+        'k_s1': 1, 'k_s': 2,  # Lateral controller parameters
         'k_p': 1.8, 'k_d': 0.27, 'k_i': 2,  # Longitudinal PID controller parameters
         'wp':2, #Waypoint Distance (m), 
         'd_th':4,# Setting a threshold distance to consider the waypoint reached (m)
