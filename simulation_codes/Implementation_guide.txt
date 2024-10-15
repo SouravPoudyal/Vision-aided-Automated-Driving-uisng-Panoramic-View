@@ -6,20 +6,20 @@ Requirements:
 
 Execution Instruction:
 
-1. Start the Python environment with necessary libraries on the workspace Simulator_codes.
+1. Start the Python environment with necessary libraries on the workspace.
 1. Download and navigate to the directory: <import/CARLA_0.9.13> start CARLA Simulator: <./CarlaUE4.exe --server>
 2. In the Simulator_code workspace run <SD_main.py> using the following execution text:
    
    Normal camera panoramic BEV at car speed 25m/s:
-   h1. Execution 1: For right lane driving with BEV (uses median finding for relative measurements): python SD_main.py -t r -d b -c False -k False -s False -c_s 25
-   h2. Execution 2: For left lane driving with BEV (uses median finding for relative measurements): python SD_main.py -t l -d b -c False -k True -s False -c_s 25  
-   h3. Execution 3: For left lane driving with BEV (uses DBSCAN for relative measurements): python SD_main.py -t l -d b -c True -k False -s False -c_s 25 
-   h4. Execution 4: For left lane driving with BEV (uses DBSCAN for line separation EKF for estimating relative measurements): python SD_main.py -t l -d f -f ekf -c True -k True -s False -c_s 25
-   h5. Execution 5: For left lane driving with BEV (uses EKF for relative states measurements): python SD_main.py -t l -d f -f ekf -c True -k False -s False -c_s 25
+   h1. Execution 1: For right lane driving with BEV (uses median finding for relative measurements): python simulation_codes/SD_main.py -t r -d b -c False -k False -s False -c_s 25
+   h2. Execution 2: For left lane driving with BEV (uses median finding for relative measurements): python simulation_codes/SD_main.py -t l -d b -c False -k True -s False -c_s 25  
+   h3. Execution 3: For left lane driving with BEV (uses DBSCAN for relative measurements): python simulation_codes/SD_main.py -t l -d b -c True -k False -s False -c_s 25 
+   h4. Execution 4: For left lane driving with BEV (uses DBSCAN for line separation EKF for estimating relative measurements): python simulation_codes/SD_main.py -t l -d f -f ekf -c True -k True -s False -c_s 25
+   h5. Execution 5: For left lane driving with BEV (uses EKF for relative states measurements): python simulation_codes/SD_main.py -t l -d f -f ekf -c True -k False -s False -c_s 25
    
    Segmentation panoramic BEV at car speed 25m/s:
-   c1. Execution 1: For right lane driving with segmentation BEV (uses median finding for relative states measurements): python SD_main.py -t r -d b -c False -k False -s True -c_s 25 -s_m c -p True
+   c1. Execution 1: For right lane driving with segmentation BEV (uses median finding for relative states measurements): python simulation_codes/SD_main.py -t r -d b -c False -k False -s True -c_s 25 -s_m c -p True
     
    Single-camera Panoramic view at car speed 25m/s
-   : python BEV_AD.py -t r -d b -c False -k False -s False -s_b r_s -c_s 25
+   : python simulation_codes/SD_main.py -t r -d b -c False -k False -s False -s_b r_s -c_s 25
    

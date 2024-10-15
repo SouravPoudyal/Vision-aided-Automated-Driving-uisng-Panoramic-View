@@ -14,6 +14,9 @@ import utils_parameters
 import utils_UKF
 import EKF as utils_EKF
 import math
+import copy
+import stitch_alg_vid_1 as stitch_1
+import stitch_alg_vid as stitch
 
 
 #Either use Windows or Linux for implementation
@@ -133,6 +136,20 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
     else:
         dot_w_max = 0
 
+    if args.single_camera_BEV == 'r_s':
+        car_positions_1 = {'k': [], 'car_pos': []}
+    
+    if args.single_camera_BEV == 'r_s':
+        # Number of frame for single panoramic FR bev stitching
+        m_st = 30
+        st_h = m_st
+    else:
+        # Number of frame for single panoramic FR bev stitching
+        # Initializing variables
+        BaseImage = None
+        BaseImageHash = None
+        st_h = 6
+
     #BEV initialization
     if args.segmentation_BEV and not args.perception:
         image_h, image_w, camera_front, camera_left, camera_right, camera_rear, camera_seg_f, camera_seg_r, camera_seg_l, camera_seg_rr, H_Front, H_Left, H_Rear, H_Right, bev_m_1, bev_m_2, eroded_img, eroded_img_1 = b.bev_init(bev_parameters['h_img'], bev_parameters['w_img'], world, vehicle, args.max_fn, args.segmentation_BEV, args.perception, args.cluster_result)
@@ -224,6 +241,9 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
         cv2.namedWindow("Front_Depth_camera", cv2.WINDOW_NORMAL)
         cv2.namedWindow("Front_camera_p", cv2.WINDOW_NORMAL)
         cv2.namedWindow("Front_segmentation_camera_p", cv2.WINDOW_NORMAL)
+    
+    if args.single_camera_BEV:
+        cv2.namedWindow('Stitched Video', cv2.WINDOW_AUTOSIZE)
 
     cv2.waitKey(1)
 
@@ -356,6 +376,95 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
             exp = True
             me_a, x_1, x_2 =  None, None, None
             t = 'No lines detected'
+        
+        #Panoramic view from single camera using relative states
+        if args.single_camera_BEV == 'r_s':
+            if k >= 30:
+                if st_h == m_st:
+                    st_h = 0
+                    base_image = bev_f
+                    if len(car_positions_1['car_pos']) == 0:
+                        car_positions_1['car_pos'].append(cp)
+                        car_positions_1['k'].append(k)  
+                if k % 4 == 0:
+                    #cv2.imwrite("EKF/1/imag/{}.png".format(k), bev_f)
+                    car_positions_1['car_pos'].append(cp)
+                    car_positions_1['k'].append(k)
+                    # Get the transformation between the current base image and the next image
+                    base_pos = car_positions_1['car_pos'][len(car_positions_1['car_pos']) - 2]
+                    next_pos = car_positions_1['car_pos'][len(car_positions_1['car_pos']) - 1]
+                    dx, distance, rotation = b.get_relative_transformation(base_pos, next_pos, bev_parameters['pixel_to_meter'])
+
+                    # Stitch the images
+                    stitched_image = b.stitch_images(base_image, bev_f, distance, dx, rotation, bev_parameters)
+
+                    # Set the stitched image as the new base image
+                    base_image = stitched_image
+                    # Make a deep copy of the base image for visualization
+                    base_image_1 = copy.deepcopy(base_image)
+                    car_i_r = b.rotate_image_i(car_i, -rotation)
+                    base_image_1  = b.place_car_on_bev(base_image_1 , car_i_r, x_w, y_h)
+                                    
+                    st_h = st_h + 1
+                    # Display the stitched image in real-time
+                    cv2.imshow('Stitched Video', base_image_1[:480, :640])
+            k += 1
+      
+        if args.single_camera_BEV == 'fm_orb':
+            if k >= 30:
+                if st_h == 6:
+                    st_h = 0
+                    BaseImage = bev_f
+                    BaseImageHash = stitch_1.dhash(BaseImage)
+                    
+                if k % 4 == 0:
+                    try:
+                        new_image = bev_f
+                        new_image_hash = stitch_1.dhash(new_image)
+
+                        if BaseImage is None or new_image_hash != BaseImageHash:
+                            try:
+                                if BaseImage is None or BaseImage.shape[0] <= 700:
+                                    StitchedImage = stitch_1.stitch_images(BaseImage, new_image)
+                                else:
+                                    BaseImage = bev_f
+                            except Exception as e:
+                                BaseImage = bev_f
+
+                            BaseImage = StitchedImage.copy()
+                            BaseImageHash = new_image_hash
+                            st_h += 1
+
+                            display_image = cv2.resize(BaseImage, (640, 480))
+                            cv2.imshow('Stitched Video', display_image)
+                            if cv2.waitKey(1) & 0xFF == ord('q'):
+                                break
+                    except Exception as e:
+                        raise ValueError("Error: {}".format(str(e)))
+            k += 1
+        
+        #Panoramic view from single camera using feature matching
+        if args.single_camera_BEV == 'fm_sift':
+            if k >= 30:
+                if st_h == 6 :
+                    st_h = 0
+                    BaseImage, _, _ = stitch.project_onto_cylinder(bev_f)
+                if k % 4 == 0:
+                    try:
+                        if BaseImage.shape[0] <= 700:
+                            StitchedImage = stitch.stitch_images(bev_f, BaseImage)
+                        else:
+                            BaseImage, _, _ = stitch.project_onto_cylinder(bev_f)
+                    except Exception as e:
+                        BaseImage, _, _ = stitch.project_onto_cylinder(bev_f)
+                        #raise ValueError("Error: {}".format(str(e)))
+                    
+                    BaseImage = StitchedImage.copy()
+                    st_h = st_h + 1
+                    # Display the stitched image in real-time
+                    cv2.imshow('Stitched Video', BaseImage[:480, :640])
+            k += 1
+
         
         # Filtering measurement input heading position used in visualization and driving using only BEV measurements
         if args.dbscan_cluster:

@@ -3,7 +3,106 @@ import carla
 import cv2
 import utils_clustering
 import Bezier_curve as be
+import math
+import utils_parameters as p
 
+def rotate_image_i(image, rotation):
+    rows, cols = image.shape[:2]
+
+    # Calculate the rotation matrix
+    M_rotate = cv2.getRotationMatrix2D((cols / 2, rows / 2), math.degrees(rotation), 1)
+
+    # Rotate the image
+    rotated_image = cv2.warpAffine(image, M_rotate, (cols, rows))
+
+    return rotated_image
+
+
+def transform_image(image, distance, dx, rotation):
+    rows, cols = image.shape[:2]
+
+    # Create the translation matrix to move the image downward
+    M_translate = np.float32([[1, 0, dx], [0, 1, distance]])
+    translated_image = cv2.warpAffine(image, M_translate, (cols, rows + int(distance)))
+
+    # Rotate the image
+    M_rotate = cv2.getRotationMatrix2D((cols / 2, rows / 2 + distance / 2), math.degrees(rotation), 1)
+    transformed_image = cv2.warpAffine(translated_image, M_rotate, (cols, rows + int(distance)))
+
+    return transformed_image
+
+
+def get_relative_transformation(base_pos, target_pos, m_to_pix):
+    # Calculate the relative translation
+    dx = target_pos[0] - base_pos[0]
+    dy = target_pos[1] - base_pos[1]
+
+    print(base_pos, target_pos)
+
+    # Calculate the distance between the two positions
+    distance = np.sqrt(dx**2 + dy**2) * m_to_pix
+
+    # Calculate the relative rotation
+    dtheta = (target_pos[2] - base_pos[2])
+
+    return dx, distance, dtheta
+
+def mask_2(image_2, distance, rotation, bev_parameters):
+    d_1 = bev_parameters['h_img']/2 - (65+50) - distance - bev_parameters['w_img']/2 * np.sin(rotation)
+    d_2 = bev_parameters['h_img']/2 - (65+50) - distance + bev_parameters['w_img']/2 * np.sin(rotation)
+
+    
+    # Ensure the indices are within valid ranges
+    d_1 = int(np.clip(d_1, 0, bev_parameters['h_img']))
+    d_2 = int(np.clip(d_2, 0, bev_parameters['h_img']))
+    
+    # Define the points of the polygon
+    pts = np.array([[0, d_1], [0, bev_parameters['h_img']], [bev_parameters['w_img'], bev_parameters['h_img']], [bev_parameters['w_img'], d_2]], dtype=np.int32)
+    
+    # Create a mask with the same dimensions as the image, initialized to 1 (white)
+    mask = np.ones(image_2.shape[:2], dtype=np.uint8)
+    
+    # Fill the polygon defined by pts with 0 (black) on the mask
+    cv2.fillPoly(mask, [pts], 0)
+    
+    # Apply the mask to the image
+    image_2[mask == 0] = 0
+    
+    return image_2
+
+def stitch_images(image1, image2, distance, dx, rotation, bev_parameters):
+    # Apply rotation and translation to image1
+    transformed_image1 = transform_image(image1, distance, dx, rotation)
+
+    image2 = mask_2(image2, distance, rotation, bev_parameters)
+    #image2 = draw_polygon(image2, distance, rotation)
+
+    # Ensure both images have 3 channels (convert from 4 to 3 if necessary)
+    if image1.shape[2] == 4:
+        image1 = cv2.cvtColor(image1, cv2.COLOR_BGRA2BGR)
+    if image2.shape[2] == 4:
+        image2 = cv2.cvtColor(image2, cv2.COLOR_BGRA2BGR)
+    if transformed_image1.shape[2] == 4:
+        transformed_image1 = cv2.cvtColor(transformed_image1, cv2.COLOR_BGRA2BGR)
+    
+
+    # Create a canvas large enough to fit both images
+    canvas_height = max(image2.shape[0], transformed_image1.shape[0])
+    canvas_width = max(image2.shape[1], transformed_image1.shape[1])
+    canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
+
+    # Place image2 on the canvas at the top-left corner
+    canvas[:image2.shape[0], :image2.shape[1]] = image2
+
+    # Blend the images using cv2.max
+    for c in range(3):  # For each color channel
+        canvas[:transformed_image1.shape[0], :transformed_image1.shape[1], c] = cv2.max(
+            canvas[:transformed_image1.shape[0], :transformed_image1.shape[1], c],
+            transformed_image1[:, :, c]
+        )
+    #canvas = stitch_1.stitch_images(image2, transformed_image1)
+
+    return canvas
 
 def to_generate_stitched_image_nm(b_f, b_r, b_l, b_rr):
 
@@ -203,7 +302,7 @@ def slope_intercept_revised(lines, y21_lst, k, w_img, h_img, W, args_lane, args_
         if len(f_m_theta) >= 2:
             #Kernel Density clustering for number of lanes
             s_k = utils_clustering.KDC_lanes(f_m_theta, k)
-            print('Kernel_density_score', s_k)
+            #print('Kernel_density_score', s_k)
         else:
             s_k = 0
     m_theta_2, _ = utils_clustering.filter_m_theta(m_theta_2, lines_2, W, args_lane)
