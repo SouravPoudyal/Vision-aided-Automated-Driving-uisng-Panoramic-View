@@ -93,6 +93,7 @@ def bev_parameters():
     return {
         'h_img':480, 'w_img':640, #BEV frame dimension height and width (640x480)
         'pixel_to_meter': 3.5 / 92,  # conversion for BEV
+        'meter_to_pixel': 92 / 3.5,  # conversion for BEV
         'W': 184, #Lane width in pixels
         'lane_width_pixels': 184,  # lane width in pixels
         'desired_color' : np.array([50, 234, 157, 255]), # Defining the BGR color value to display in segmentation map (for example, red: B=0, G=0, R=255)

@@ -393,7 +393,7 @@ def filter_LatControl_loop(world, vehicle, control, args, car_state, bev_paramet
                     # Get the transformation between the current base image and the next image
                     base_pos = car_positions_1['car_pos'][len(car_positions_1['car_pos']) - 2]
                     next_pos = car_positions_1['car_pos'][len(car_positions_1['car_pos']) - 1]
-                    dx, distance, rotation = b.get_relative_transformation(base_pos, next_pos, bev_parameters['pixel_to_meter'])
+                    dx, distance, rotation = b.get_relative_transformation(base_pos, next_pos, bev_parameters['meter_to_pixel'])
 
                     # Stitch the images
                     stitched_image = b.stitch_images(base_image, bev_f, distance, dx, rotation, bev_parameters)

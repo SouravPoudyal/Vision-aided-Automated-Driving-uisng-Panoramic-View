@@ -37,8 +37,6 @@ def get_relative_transformation(base_pos, target_pos, m_to_pix):
     dx = target_pos[0] - base_pos[0]
     dy = target_pos[1] - base_pos[1]
 
-    print(base_pos, target_pos)
-
     # Calculate the distance between the two positions
     distance = np.sqrt(dx**2 + dy**2) * m_to_pix
 
